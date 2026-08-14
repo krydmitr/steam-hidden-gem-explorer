@@ -1,0 +1,19 @@
+# Dataset (download from Kaggle, see README)
+data/
+*.csv
+*.json
+
+# Archives
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

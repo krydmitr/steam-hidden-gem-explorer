@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts must keep LF even when checked out on Windows. bash treats a
+# trailing CR as part of the command and fails with "\r: command not found".
+*.sh text eol=lf
+
+# Batch files are the reverse case: cmd.exe expects CRLF.
+*.bat text eol=crlf

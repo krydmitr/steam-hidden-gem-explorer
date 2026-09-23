@@ -6,23 +6,39 @@ import plotly.graph_objects as go
 import re
 # import math
 import statistics
-from dash import Dash, dcc, html, Input, Output
+from dash import Dash, dcc, html, Input, Output, State, no_update
+
+import nl_filter
+
+# Read ANTHROPIC_API_KEY from the .env file next to this script. Variables
+# already set in the shell take precedence, so exporting the key by hand
+# overrides the file. A missing .env or a missing library is not an error. The
+# app runs without a key and disables the natural-language box.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+except ImportError:
+    pass
 
 
 
 #################################################################################################################
 
-JSON_PATH = "games.json"  
+JSON_PATH = "games.json"
+# Parsing 675 MB of JSON takes minutes, so the cleaned dataframe is cached and
+# rebuilt only when games.json changes. Delete this file to force a rebuild.
+CACHE_PATH = "games_clean.pkl"
 
-with open(JSON_PATH, "r", encoding="utf-8") as f:
-    raw = json.load(f)
-
-df = pd.DataFrame.from_dict(raw, orient="index")
-df.reset_index(inplace=True)
-df.rename(columns={"index": "appid"}, inplace=True)
-
-
-
+# The columns read by the app and the natural-language filter. The raw dataset
+# also carries descriptions, screenshot URLs and trailers, which account for
+# most of its size and are unused here.
+KEEP_COLUMNS = [
+    "appid", "name", "tags", "genres", "categories",
+    "positive", "negative", "total_reviews", "review_score",
+    "owners", "price_clean", "release_year", "genre_main",
+    "median_playtime_forever", "average_playtime_forever",
+    "windows", "mac", "linux",
+]
 
 
 def parse_owners(s):
@@ -36,42 +52,11 @@ def parse_owners(s):
         return nums[0]
     return (nums[0] + nums[1]) // 2
 
-df["owners"] = df["estimated_owners"].apply(parse_owners)
-
-df["total_reviews"] = df["positive"] + df["negative"]
-df = df[df["total_reviews"] > 0]
-df["review_score"] = df["positive"] / df["total_reviews"]
-
-df["release_year"] = pd.to_datetime(
-    df["release_date"], errors="coerce", infer_datetime_format=True
-).dt.year
 
 def get_first_genre(g):
     if isinstance(g, list) and len(g) > 0:
         return g[0]
     return "Unknown"
-
-df["genre_main"] = df["genres"].apply(get_first_genre)
-
-
-
-#################################################################################################################
-
-
-NON_GAME_GENRES = {
-    "Game Development",
-    "Animation & Modeling",
-    "Design & Illustration",
-    "Education",
-    "Video Production",
-    "Photo Editing",
-    "Web Publishing",
-    "Software Training",
-    "Utilities",
-    "Audio Production"
-}
-
-df = df[~df["genre_main"].isin(NON_GAME_GENRES)]
 
 
 def extract_price(pkg_list, fallback):
@@ -88,28 +73,82 @@ def extract_price(pkg_list, fallback):
         return min(prices)
     return fallback
 
-df["price_clean"] = df.apply(lambda row: extract_price(row["packages"], row["price"]), axis=1)
 
-#################################################################################################################
+NON_GAME_GENRES = {
+    "Game Development",
+    "Animation & Modeling",
+    "Design & Illustration",
+    "Education",
+    "Video Production",
+    "Photo Editing",
+    "Web Publishing",
+    "Software Training",
+    "Utilities",
+    "Audio Production"
+}
 
-df = df[df["owners"].notna()]
-df = df[df["owners"] >= 100]
-df = df[df["positive"] >= 100]
-df = df[df["review_score"] >= 0.1]
-df = df[df["price_clean"] <= 150]
+
+def build_dataframe():
+    with open(JSON_PATH, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+
+    df = pd.DataFrame.from_dict(raw, orient="index")
+    df.reset_index(inplace=True)
+    df.rename(columns={"index": "appid"}, inplace=True)
+
+    df["owners"] = df["estimated_owners"].apply(parse_owners)
+
+    df["total_reviews"] = df["positive"] + df["negative"]
+    df = df[df["total_reviews"] > 0]
+    df["review_score"] = df["positive"] / df["total_reviews"]
+
+    df["release_year"] = pd.to_datetime(df["release_date"], errors="coerce").dt.year
+
+    df["genre_main"] = df["genres"].apply(get_first_genre)
+
+    df = df[~df["genre_main"].isin(NON_GAME_GENRES)]
+
+    df["price_clean"] = df.apply(lambda row: extract_price(row["packages"], row["price"]), axis=1)
+
+    df = df[df["owners"].notna()]
+    df = df[df["owners"] >= 100]
+    df = df[df["positive"] >= 100]
+    df = df[df["review_score"] >= 0.1]
+    df = df[df["price_clean"] <= 150]
+
+    return df[KEEP_COLUMNS]
+
+
+def load_dataframe():
+    source_time = os.path.getmtime(JSON_PATH)
+    if os.path.exists(CACHE_PATH) and os.path.getmtime(CACHE_PATH) >= source_time:
+        print(f"Loading cached dataframe from {CACHE_PATH}")
+        return pd.read_pickle(CACHE_PATH)
+
+    print(f"Building dataframe from {JSON_PATH} (this takes a few minutes)...")
+    df = build_dataframe()
+    df.to_pickle(CACHE_PATH)
+    print(f"Cached {len(df)} games to {CACHE_PATH}")
+    return df
+
+
+df = load_dataframe()
 
 #################################################################################################################
 
 df["hidden_gem_score"] = df["review_score"] / np.sqrt(df["owners"])
 
-
-
-
-
 df["hidden_gem_score_norm"] = (
     (df["hidden_gem_score"] - df["hidden_gem_score"].min()) /
     (df["hidden_gem_score"].max() - df["hidden_gem_score"].min())
 )
+
+# Lowercase tag, genre and category sets used for filtering, and the list of
+# names the model is allowed to use when it builds a filter.
+df = nl_filter.prepare_dataframe(df)
+VOCAB = nl_filter.collect_vocabulary(df)
+
+print(f"{len(df)} games loaded, {len(VOCAB['tags'])} tags in the filter vocabulary")
 
 #################################################################################################################
 
@@ -119,13 +158,32 @@ app = Dash(__name__)
 app.layout = html.Div([
     html.H1("Steam Hidden Gem Explorer"),
 
-    html.Label("Enter a tag to filter (e.g. 'horror')"),
+    html.Label("Describe what you're looking for"),
+    html.Div([
+        dcc.Input(
+            id="nl-input",
+            type="text",
+            placeholder="cheap co-op games with good reviews that aren't too long",
+            debounce=False,
+            style={"width": "520px", "marginRight": "10px"}
+        ),
+        html.Button("Search", id="nl-search-button", n_clicks=0),
+    ], style={"marginBottom": "8px"}),
+
+    dcc.Loading(
+        html.Div(id="nl-status", style={"minHeight": "40px", "marginBottom": "16px"}),
+        type="default"
+    ),
+
+    html.Label("Or enter a tag directly (e.g. 'horror')"),
     dcc.Input(
         id="genre-input",
         type="text",
         placeholder="Type a tag...",
         style={"width": "300px", "margin-bottom": "20px"}
     ),
+
+    dcc.Store(id="filter-spec"),
 
     dcc.Graph(id="scatter-plot"),
     dcc.Graph(id="tag-bar-chart"),
@@ -134,17 +192,46 @@ app.layout = html.Div([
 
 #################################################################################################################
 
+
+@app.callback(
+    [Output("filter-spec", "data"),
+     Output("nl-status", "children")],
+    [Input("nl-search-button", "n_clicks"),
+     Input("nl-input", "n_submit")],
+    State("nl-input", "value"),
+    prevent_initial_call=True
+)
+def run_nl_search(n_clicks, n_submit, text):
+    """Send the typed description to the API and store the returned filter spec."""
+    if not (text or "").strip():
+        return None, html.Div("Natural-language filter cleared.", style={"color": "#666"})
+
+    try:
+        spec = nl_filter.parse_query(text, VOCAB)
+    except nl_filter.FilterError as e:
+        # A failure leaves the existing view in place rather than blanking the
+        # charts, and reports what happened.
+        return no_update, html.Div(str(e), style={"color": "#b00020"})
+
+    status = html.Div([
+        html.Div(spec["interpretation"], style={"fontWeight": "bold"}),
+        html.Div(nl_filter.describe_spec(spec), style={"color": "#555", "fontSize": "13px"}),
+    ])
+    return spec, status
+
+
 @app.callback(
     [Output("scatter-plot", "figure"),
      Output("tag-bar-chart", "figure"),
      Output("year-bar-chart", "figure")],
-    Input("genre-input", "value")
+    [Input("filter-spec", "data"),
+     Input("genre-input", "value")]
 )
-def update_charts(genre_filter):
+def update_charts(spec, genre_filter):
 
-    if genre_filter is None or genre_filter.strip() == "":
-        filtered = df
-    else:
+    filtered = nl_filter.apply_filters(df, spec)
+
+    if genre_filter is not None and genre_filter.strip() != "":
         g = genre_filter.strip().lower()
 
         def has_tag(tag_dict):
@@ -152,7 +239,7 @@ def update_charts(genre_filter):
                 return any(g in tag.lower() for tag in tag_dict.keys())
             return False
 
-        filtered = df[df["tags"].apply(has_tag)]
+        filtered = filtered[filtered["tags"].apply(has_tag)]
 
 
     scatter = go.Figure()
@@ -192,7 +279,7 @@ def update_charts(genre_filter):
 
     scatter.update_xaxes(title="Estimated Owners (log scale)", type="log")
     scatter.update_yaxes(title="Review Score %")
-    scatter.update_layout(title="Hidden Gem Scatter Plot", height=650)
+    scatter.update_layout(title=f"Hidden Gem Scatter Plot ({len(filtered)} games)", height=650)
 
 
     tag_counts = {}

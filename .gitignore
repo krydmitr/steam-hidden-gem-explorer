@@ -1,7 +1,17 @@
+# Secrets - the API key lives in .env, which must never be committed.
+# .env.example is the placeholder-only template and IS committed.
+.env
+!.env.example
+
 # Dataset (download from Kaggle, see README)
 data/
 *.csv
 *.json
+games_clean.pkl
+
+# Eval runs are kept. They are the record of how the filter scored over time,
+# and the *.json rule above would otherwise exclude them.
+!eval_results/*.json
 
 # Archives
 *.zip

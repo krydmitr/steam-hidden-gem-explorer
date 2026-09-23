@@ -1,0 +1,174 @@
+{
+  "label": "2026-09-03_23-04-56",
+  "model": "claude-haiku-4-5",
+  "runs_per_case": 1,
+  "pass_rate": 0.8888888888888888,
+  "cases": {
+    "readme_headline": {
+      "query": "cheap co-op games with good reviews that aren't too long",
+      "pass_rate": 0.0,
+      "results": [
+        362
+      ],
+      "failures": [
+        "category 'Local Co-op' is not in the prompt vocabulary"
+      ],
+      "seconds": 5.94
+    },
+    "two_concepts": {
+      "query": "medieval games to play with friends",
+      "pass_rate": 1.0,
+      "results": [
+        210
+      ],
+      "failures": [],
+      "seconds": 2.12
+    },
+    "no_unrequested_narrowing": {
+      "query": "obscure horror games from before 2015 with great reviews",
+      "pass_rate": 1.0,
+      "results": [
+        23
+      ],
+      "failures": [],
+      "seconds": 2.0
+    },
+    "bare_concept_adds_nothing": {
+      "query": "horror games",
+      "pass_rate": 1.0,
+      "results": [
+        2749
+      ],
+      "failures": [],
+      "seconds": 1.81
+    },
+    "free_and_platform": {
+      "query": "free multiplayer games that run on linux",
+      "pass_rate": 1.0,
+      "results": [
+        117
+      ],
+      "failures": [],
+      "seconds": 1.87
+    },
+    "ranking_and_limit": {
+      "query": "the 20 best-reviewed indie games nobody owns",
+      "pass_rate": 1.0,
+      "results": [
+        20
+      ],
+      "failures": [],
+      "seconds": 2.27
+    },
+    "price_explicit": {
+      "query": "games under 5 dollars",
+      "pass_rate": 1.0,
+      "results": [
+        6062
+      ],
+      "failures": [],
+      "seconds": 1.52
+    },
+    "review_explicit": {
+      "query": "games with at least 90 percent positive reviews",
+      "pass_rate": 1.0,
+      "results": [
+        5010
+      ],
+      "failures": [],
+      "seconds": 1.77
+    },
+    "very_cheap_is_lower": {
+      "query": "very cheap indie games",
+      "pass_rate": 1.0,
+      "results": [
+        4149
+      ],
+      "failures": [],
+      "seconds": 1.67
+    },
+    "long_is_a_minimum": {
+      "query": "long meaty rpgs to sink time into",
+      "pass_rate": 1.0,
+      "results": [
+        130
+      ],
+      "failures": [],
+      "seconds": 1.88
+    },
+    "negation_is_a_maximum": {
+      "query": "games that aren't too long",
+      "pass_rate": 1.0,
+      "results": [
+        9942
+      ],
+      "failures": [],
+      "seconds": 1.76
+    },
+    "popular_is_a_floor": {
+      "query": "popular well known games",
+      "pass_rate": 1.0,
+      "results": [
+        1005
+      ],
+      "failures": [],
+      "seconds": 1.91
+    },
+    "obscure_is_a_ceiling": {
+      "query": "hidden gems nobody has heard of",
+      "pass_rate": 1.0,
+      "results": [
+        12232
+      ],
+      "failures": [],
+      "seconds": 2.17
+    },
+    "recent": {
+      "query": "recent indie games",
+      "pass_rate": 1.0,
+      "results": [
+        939
+      ],
+      "failures": [],
+      "seconds": 1.67
+    },
+    "two_tag_concepts": {
+      "query": "relaxing puzzle games",
+      "pass_rate": 1.0,
+      "results": [
+        466
+      ],
+      "failures": [],
+      "seconds": 1.88
+    },
+    "category_pair": {
+      "query": "co-op games with full controller support",
+      "pass_rate": 1.0,
+      "results": [
+        1114
+      ],
+      "failures": [],
+      "seconds": 2.01
+    },
+    "single_player": {
+      "query": "single player story driven games",
+      "pass_rate": 0.0,
+      "results": [
+        3168
+      ],
+      "failures": [
+        "category_groups was not set"
+      ],
+      "seconds": 2.78
+    },
+    "nonsense_input": {
+      "query": "asdfghjkl qwertyuiop",
+      "pass_rate": 1.0,
+      "results": [
+        16152
+      ],
+      "failures": [],
+      "seconds": 1.7
+    }
+  }
+}

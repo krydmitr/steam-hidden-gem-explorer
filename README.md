@@ -1,7 +1,9 @@
 # Steam Hidden Gem Explorer
 
-An interactive visualisation of ~2M Steam games, scoring each one on a "hidden gem"
-metric: review score relative to how few people own it. The view can be filtered by
+An interactive visualisation of Steam games, scoring each one on a "hidden gem"
+metric: review score relative to how few people own it. The dataset holds 111,452
+entries and 16,152 remain after cleaning, which drops non-game software and
+anything with fewer than 100 positive reviews. The view can be filtered by
 typing a description in plain English, for example "cheap co-op games with good
 reviews that aren't too long".
 
@@ -62,7 +64,10 @@ resolved this without changes to the prompt.
 The model is not told which tag strings exist in this particular dataset unless the
 prompt says so. Without the list it returns plausible but unused tag names, which
 match no rows. The system prompt is therefore built at startup from the data itself
-and includes the 200 most common tags and every category.
+and includes the 200 most common tags, which cover 92% of tag usage, and every
+category. A name the model returns that is not in the data is removed by
+`normalise_spec()` and reported under the search box, so the filter never
+silently widens.
 
 ### Value checking
 

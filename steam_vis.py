@@ -213,11 +213,22 @@ def run_nl_search(n_clicks, n_submit, text):
         # charts, and reports what happened.
         return no_update, html.Div(str(e), style={"color": "#b00020"})
 
-    status = html.Div([
+    lines = [
         html.Div(spec["interpretation"], style={"fontWeight": "bold"}),
         html.Div(nl_filter.describe_spec(spec), style={"color": "#555", "fontSize": "13px"}),
-    ])
-    return spec, status
+    ]
+
+    # normalise_spec removes names that do not occur in the data. Without this
+    # line the filter is quietly broader than the interpretation above claims,
+    # because a dropped name, or a whole dropped group, is invisible.
+    dropped = spec.get("_dropped_names") or []
+    if dropped:
+        lines.append(html.Div(
+            "Ignored, not in the dataset: " + ", ".join(dropped),
+            style={"color": "#a15c00", "fontSize": "13px"},
+        ))
+
+    return spec, html.Div(lines)
 
 
 @app.callback(

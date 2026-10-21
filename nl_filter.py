@@ -26,9 +26,11 @@ import pandas as pd
 # rejects.
 MODEL = "claude-haiku-4-5"
 
-# How many of the most common tags to list in the prompt. The dataset holds
-# thousands of distinct tags and the long tail costs tokens without adding
-# useful vocabulary.
+# How many of the most common tags to list in the prompt. The data holds 448
+# distinct tags and the top 200 cover 92% of tag usage. A tag outside the list
+# is not offered to the model, and if the model produces one anyway
+# normalise_spec removes it, so raising this number widens what can be asked
+# for at the cost of a longer prompt.
 TAG_VOCAB_SIZE = 200
 
 
@@ -235,7 +237,7 @@ Rules:
 
 
 def collect_vocabulary(df, tag_limit=TAG_VOCAB_SIZE):
-    """Return the tag, genre and category names present in the data."""
+    """Return the tag and category names present in the data."""
     tag_counts = {}
     for tags in df["tags"]:
         if isinstance(tags, dict):
@@ -243,11 +245,6 @@ def collect_vocabulary(df, tag_limit=TAG_VOCAB_SIZE):
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
 
     top_tags = sorted(tag_counts.items(), key=lambda kv: kv[1], reverse=True)[:tag_limit]
-
-    genres = set()
-    for g in df["genres"]:
-        if isinstance(g, list):
-            genres.update(g)
 
     categories = {}
     for c in df["categories"]:
@@ -257,7 +254,6 @@ def collect_vocabulary(df, tag_limit=TAG_VOCAB_SIZE):
 
     return {
         "tags": [t for t, _ in top_tags],
-        "genres": sorted(genres),
         # Categories are a short fixed list. Ordering by frequency puts
         # Single-player, Multi-player and Co-op first.
         "categories": [c for c, _ in sorted(categories.items(), key=lambda kv: kv[1], reverse=True)],
@@ -438,9 +434,6 @@ def prepare_dataframe(df):
     df = df.copy()
     df["_tags_lc"] = df["tags"].apply(
         lambda t: {tag.lower() for tag in t} if isinstance(t, dict) else set()
-    )
-    df["_genres_lc"] = df["genres"].apply(
-        lambda g: {x.lower() for x in g} if isinstance(g, list) else set()
     )
     df["_categories_lc"] = df["categories"].apply(
         lambda c: {x.lower() for x in c} if isinstance(c, list) else set()
